@@ -1,0 +1,7 @@
+*.venv/
+*/Data/
+/Data
+/.venv
+__pycache__
+/PytorchModel
+.DS_Store
