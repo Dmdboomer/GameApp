@@ -67,7 +67,24 @@ public class LogicHelper {
         if (currPiece.isWhite != isWhiteTurn){
             return false;
         }
-
+        if (isWhiteTurn){
+            if (currPiece instanceof King){
+                if (to.row == 7 && to.col == 6 && !currPiece.hasMoved){
+                    return canShortCastle(isWhiteTurn);
+                } else if (to.row == 7 && to.col == 2 && !currPiece.hasMoved){
+                    return canLongCastle(isWhiteTurn);
+                }
+            }
+        } else {
+            if (currPiece instanceof King){
+                if (to.row == 0 && to.col == 6 && !currPiece.hasMoved){
+                    return canShortCastle(isWhiteTurn);
+                } else if (to.row == 0 && to.col == 2 && !currPiece.hasMoved){
+                    return canLongCastle(isWhiteTurn);
+                }
+            }
+        }
+        
         ChessPiece[][] boardCopy = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
         for (int row =0;row<BOARD_SIZE;row++){
             for(int col = 0; col < BOARD_SIZE; col++){

@@ -17,16 +17,17 @@ public class ChessMenu extends JFrame {
 
         JButton twoPlayerButton = createMenuButton("2 Player", Color.GREEN);
         JButton vsAIButton = createMenuButton("1 Player", Color.BLUE);
-        JButton AIvsAIButton = createMenuButton("0 Player???", Color.BLUE);
+        JButton AIvsAIButton = createMenuButton("0 Player???", Color.YELLOW);
         JButton exitButton = createMenuButton("Exit", Color.RED);
 
-        twoPlayerButton.addActionListener(e -> startChessGame());
-        vsAIButton.addActionListener(e -> showComingSoon());
+        twoPlayerButton.addActionListener(e -> startChessGame2p());
+        vsAIButton.addActionListener(e -> startChessGame1p());
         AIvsAIButton.addActionListener(e -> showComingSoon());
         exitButton.addActionListener(e -> System.exit(0));
         
         add(twoPlayerButton);
         add(vsAIButton);
+        add(AIvsAIButton);
         add(exitButton);
 
         setLocationRelativeTo(null);
@@ -44,9 +45,13 @@ public class ChessMenu extends JFrame {
         return button;
     }
 
-    private void startChessGame() {
-        dispose(); // Close the menu
-        SwingUtilities.invokeLater(() -> new ChessGame().setVisible(true));
+    private void startChessGame2p() {
+        dispose();
+        SwingUtilities.invokeLater(() -> new ChessGameTwoPlayer().setVisible(true));
+    }
+    private void startChessGame1p() {
+        dispose();
+        SwingUtilities.invokeLater(() -> new ChessGameOnePlayer(true).setVisible(true));
     }
 
     private void showComingSoon() {
