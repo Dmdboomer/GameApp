@@ -4,13 +4,6 @@ from torch.utils.data import Dataset
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-# Piece mapping with blank character included
-piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
-piece_to_idx['.'] = 0  # Explicit mapping for empty squares
-PATH_TO_DATA = 'Data/parsed_positions.txt'
-PATH_TO_MODEL = 'PytorchModel/chess_eval_model_1MParameters_5epochs.pth'
-EPOCH_AMOUNT = 5
-
 def fen_to_features(fen):
     tokens = fen.split()
     board = tokens[0]
@@ -68,7 +61,7 @@ class ChessEvalDataset(Dataset):
             for line in f:
                 fen, eval_str = line.strip().split('|')
                 features = fen_to_features(fen)
-                if index % 10000 == 0:
+                if index % 100 == 0:
                     print(f"Parsed: {index}")
                 index += 1
                 eval_val = parse_evaluation(eval_str)
@@ -106,30 +99,6 @@ class ChessEvalModel(nn.Module):
         combined = torch.cat([emb, other_features], dim=1)
         
         return self.fc(combined)
-    
-# Initialize components
-dataset = ChessEvalDataset(PATH_TO_DATA)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-model = ChessEvalModel()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-criterion = nn.MSELoss()
-
-# Training loop
-index = 0
-for epoch in range(EPOCH_AMOUNT):
-    for inputs, targets in dataloader:
-        if index % 10000 == 0:
-            print("Trained on input: %d", index)
-        index +=1
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
-    print(f'Epoch {epoch+1}, Loss: {loss.item():.4f}')
-
-torch.save(model.state_dict(), PATH_TO_MODEL)
-print("Model saved to " + PATH_TO_MODEL)
 
 def evaluate_position(fen_str):
     model.load_state_dict(torch.load(PATH_TO_MODEL))
@@ -139,6 +108,37 @@ def evaluate_position(fen_str):
         prediction = model(features)
         return prediction.item()
 
-# Example usage with castling
-fen = "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
-print(f"Position evaluation: {evaluate_position(fen):.2f}")
+if __name__ == '__main__':  # Wrap main code
+    # Piece mapping with blank character included
+    piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
+    piece_to_idx['.'] = 0  # Explicit mapping for empty squares
+    PATH_TO_DATA = 'Data/parsed_positions_5M.txt'
+    PATH_TO_MODEL = 'PytorchModel/chess_eval_model_5MParameters_25epochs.pth'
+    EPOCH_AMOUNT = 25
+
+    # Initialize components
+    dataset = ChessEvalDataset(PATH_TO_DATA)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    model = ChessEvalModel()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.MSELoss()
+
+    # Training loop
+    index = 0
+    for epoch in range(EPOCH_AMOUNT):
+        for inputs, targets in dataloader:
+            if index % 10000 == 0:
+                print("Trained on input: %d", index)
+            index +=1
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
+        print(f'Epoch {epoch+1}, Loss: {loss.item():.4f}')
+
+    torch.save(model.state_dict(), PATH_TO_MODEL)
+    print("Model saved to " + PATH_TO_MODEL)
+    # Example usage with castling
+    fen = "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+    print(f"Position evaluation: {evaluate_position(fen):.2f}")

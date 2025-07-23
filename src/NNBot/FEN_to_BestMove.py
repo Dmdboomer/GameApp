@@ -1,8 +1,8 @@
 from Model_Loader import evaluate_position
 import chess
 import sys
-MODEL_2 = 'PytorchModel/chess_eval_model_1MParameters_25epochs.pth'
-MODEL_1 = 'PytorchModel/chess_eval_model_100kParameters_1epochs.pth'
+MODEL_1 = 'PytorchModel/chess_eval_model_5MParameters_25epochs.pth'
+MODEL_2 = 'PytorchModel/chess_eval_model_5MParameters_3epochs.pth'
 
 def generate_next_fens(fen):
     """

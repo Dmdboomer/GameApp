@@ -52,7 +52,7 @@ package src.main.java;
 
         // Example usage
         public static void main(String[] args) {
-            String fen = "rnbq1rk1/ppp1bppp/5n2/3pp1N1/2PP4/6P1/PPQBPPBP/RN3RK1 w - - 2 10";
+            String fen = "rnbq1b1r/1pppPk2/6pp/p2P4/5B2/8/PPP2PPP/RN1QKBNR b KQ - 0 0";
             String[] bestMoves = getBestMove(fen);
             System.out.println("Model1: " + bestMoves[0]);
             System.out.println("Model2: " + bestMoves[1]);

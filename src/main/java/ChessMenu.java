@@ -22,7 +22,7 @@ public class ChessMenu extends JFrame {
 
         twoPlayerButton.addActionListener(e -> startChessGame2p());
         vsAIButton.addActionListener(e -> startChessGame1p());
-        AIvsAIButton.addActionListener(e -> showComingSoon());
+        AIvsAIButton.addActionListener(e -> startChessGame0p());
         exitButton.addActionListener(e -> System.exit(0));
         
         add(twoPlayerButton);
@@ -51,7 +51,11 @@ public class ChessMenu extends JFrame {
     }
     private void startChessGame1p() {
         dispose();
-        SwingUtilities.invokeLater(() -> new ChessGameOnePlayer(true).setVisible(true));
+        SwingUtilities.invokeLater(() -> new ChessGameOnePlayer(true, 0).setVisible(true));
+    }
+    private void startChessGame0p() {
+        dispose();
+        SwingUtilities.invokeLater(() -> new ChessGameZeroPlayer().setVisible(true));
     }
 
     private void showComingSoon() {

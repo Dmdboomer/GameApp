@@ -1,12 +1,8 @@
 package src.main.java.utils;
 
 import java.util.ArrayList;
-import src.main.java.ChessPieces.ChessPiece;
-import src.main.java.ChessPieces.King;
-import src.main.java.ChessPieces.Pawn;
-import src.main.java.ChessPieces.Position;
-import src.main.java.ChessPieces.Queen;
-import src.main.java.ChessPieces.Rook;
+import src.main.java.ChessPieces.*;
+
 
 public class LogicHelper {
     public static final int BOARD_SIZE = 8;
@@ -275,5 +271,151 @@ public class LogicHelper {
             movePiece(e8,c8);
             movePiece(a8,d8);
         }
+    }
+
+    public static String boardToFEN(ChessPiece[][]board, boolean isWhiteTurn){
+        String result = "";
+        for (int row =0; row < 8; row++){
+            int currSpace = 0;
+            String fenRow = "";
+            for (int col = 0; col < 8; col++){
+                boolean isWhitePiece;
+                ChessPiece currPiece = board[row][col];
+                if (currPiece == null){
+                    currSpace+=1;
+                } else {
+                    if (currPiece.isWhite){
+                        isWhitePiece = true;
+                    } else {
+                        isWhitePiece = false;
+                    }
+                    if (currSpace > 0){
+                        fenRow += String.valueOf(currSpace);
+                        currSpace = 0;
+                    }
+                    fenRow += pieceToSymbol(currPiece, isWhitePiece);
+                }
+            }
+
+            if (currSpace > 0){
+                fenRow += String.valueOf(currSpace);
+                currSpace = 0;
+            }
+            result += fenRow;
+            if (row <= 6){
+                result += "/";
+            }
+            fenRow = "";
+        }
+        result += " ";
+
+        if (isWhiteTurn){
+            result += "w";
+        } else{
+            result += "b";
+        }
+        result += " ";
+
+        ChessPiece a1 = board[7][0];
+        ChessPiece a8 = board[0][0];
+        ChessPiece e1 = board[7][4];
+        ChessPiece e8 = board[0][4];
+        ChessPiece h1 = board[7][7];
+        ChessPiece h8 = board[0][7];
+        boolean couldShortCastleW = true;
+        boolean couldShortCastleB = true;
+        boolean couldLongCastleW = true;
+        boolean couldLongCastleB = true;
+        if (!(a1 instanceof Rook) || !(e1 instanceof King) || a1.hasMoved || e1.hasMoved){
+            couldLongCastleW = false;
+        }
+        if (!(a8 instanceof Rook) || !(e8 instanceof King) || a8.hasMoved || e8.hasMoved){
+            couldLongCastleB = false;
+        }
+        if (!(h1 instanceof Rook) || !(e1 instanceof King) || h1.hasMoved || e1.hasMoved){
+            couldShortCastleW = false;
+        }
+        if (!(h8 instanceof Rook) || !(e8 instanceof King) || a1.hasMoved || e1.hasMoved){
+            couldShortCastleB = false;
+        }
+        if (!couldLongCastleB && !couldLongCastleW && !couldShortCastleB && ! couldShortCastleW){
+            result += "-";
+        } else{
+            if (couldShortCastleW){
+                result += "K";
+            }
+            if (couldLongCastleW){
+                result += "Q";
+            }
+            if (couldShortCastleB){
+                result += "k";
+            }
+            if (couldLongCastleB){
+                result += "q";
+            }
+        }
+        
+        // Need to do en pessant stuff
+        result += " - 0 0";
+        
+
+        return result;
+    }
+    
+    public static String pieceToSymbol(ChessPiece piece, boolean isWhite){
+        String symbol;
+        if (piece instanceof Pawn){
+            symbol = "p";
+        } else if (piece instanceof King){
+            symbol = "k";
+        } else if (piece instanceof Knight){
+            symbol = "n";
+        } else if (piece instanceof Queen){
+            symbol = "q";
+        } else if (piece instanceof Bishop){
+            symbol = "b";
+        } else{
+            symbol = "r";
+        }
+        if (isWhite){
+            symbol = symbol.toUpperCase();
+        }
+        return symbol;
+
+    }
+
+    public static void main(String[] args) {
+        ChessPiece[][] board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
+
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            board[1][col] = new Pawn(false);
+            board[6][col] = new Pawn(true);
+        }
+        
+        // Black pieces
+        board[0][0] = new Rook(false);
+        board[0][7] = new Rook(false);
+        board[0][1] = new Knight(false);
+        board[0][6] = new Knight(false);
+        board[0][2] = new Bishop(false);
+        board[0][5] = new Bishop(false);
+        board[0][3] = new Queen(false);
+        board[0][4] = new King(false);
+        
+        // White pieces
+        board[7][0] = new Rook(true);
+        board[7][7] = new Rook(true);
+        board[7][1] = new Knight(true);
+        board[7][6] = new Knight(true);
+        board[7][2] = new Bishop(true);
+        board[7][5] = new Bishop(true);
+        board[7][3] = new Queen(true);
+        board[7][4] = new King(true);
+
+        board[6][3] = null;
+        board[1][2] = null;
+        board[3][2] = new Pawn(true);
+
+        System.out.println(boardToFEN(board, true));
     }
 }

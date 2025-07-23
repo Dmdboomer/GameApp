@@ -11,11 +11,13 @@ public class ChessGameOnePlayer extends ChessGameBase {
     private final AlphaBetaPruning ai;
     private boolean isAITurn = false;
     private JButton aiMoveButton;
+    private int botSelection;
 
-    public ChessGameOnePlayer(boolean humanIsWhite) {
+    public ChessGameOnePlayer(boolean humanIsWhite, int botSelection) {
         super("Chess - Human vs AI");
         this.humanIsWhite = humanIsWhite;
         this.ai = new AlphaBetaPruning(!humanIsWhite);
+        this.botSelection = botSelection;
         isWhiteTurn = humanIsWhite;
         isAITurn = !humanIsWhite;
         
@@ -85,7 +87,12 @@ public class ChessGameOnePlayer extends ChessGameBase {
             
             @Override
             protected Void doInBackground() {
-                aiMove = ai.findBestMove(board, isWhiteTurn);
+                if (botSelection == 0){
+                    aiMove = ai.findBestMove(board, isWhiteTurn);
+                }
+                else if ( 0 < botSelection  && botSelection <2){
+                    aiMove = "e3e2";
+                }
                 return null;
             }
             
@@ -128,7 +135,7 @@ public class ChessGameOnePlayer extends ChessGameBase {
     }
     
     // Enhanced move execution with castling and promotion support
-    protected void doMove(Position from, Position to) {
+    public void doMove(Position from, Position to) {
         ChessPiece piece = board[from.row][from.col];
         board[to.row][to.col] = piece;
         board[from.row][from.col] = null;

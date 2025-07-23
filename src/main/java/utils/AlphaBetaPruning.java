@@ -47,40 +47,46 @@ public final class AlphaBetaPruning {
         List<Move> moves = generateAllLegalMoves(helper, aiIsWhite);
         if (moves.isEmpty()) return null;
         
-        Move bestMove = null;
-        int bestValue = -INF;
-        
+        // Track best moves across iterations (for deepest depth)
+        List<Move> overallBestMoves = new ArrayList<>();
+        int overallBestValue = -INF;
+
         // Iterative deepening
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             int alpha = -INF;
             int beta = INF;
-            Move currentBest = null;
+            int currentBestValue = -INF;
+            List<Move> currentDepthBestMoves = new ArrayList<>();
             
             for (Move move : moves) {
                 ChessPiece[][] newBoard = makeMove(board, move);
                 int value = alphaBeta(newBoard, !aiIsWhite, depth-1, alpha, beta);
                 
-                if (value > bestValue) {
-                    bestValue = value;
-                    currentBest = move;
+                // Track best moves for current depth
+                if (value > currentBestValue) {
+                    currentBestValue = value;
+                    currentDepthBestMoves.clear();
+                    currentDepthBestMoves.add(move);
+                } else if (value == currentBestValue) {
+                    currentDepthBestMoves.add(move);
                 }
                 
                 // Alpha-beta updates
-                if (value > alpha) {
-                    alpha = value;
-                    bestMove = move;
-                }
-                if (alpha >= beta) {
-                    break;
-                }
+                if (value > alpha) alpha = value;
+                if (alpha >= beta) break; // Beta cutoff
             }
             
-            // Use the current iteration's best if not null
-            if (currentBest != null) {
-                bestMove = currentBest;
+            // Update overall best moves/value for deepest depth
+            if (!currentDepthBestMoves.isEmpty()) {
+                overallBestValue = currentBestValue;
+                overallBestMoves = currentDepthBestMoves;
             }
         }
         
+        // Random selection among best moves
+        if (overallBestMoves.isEmpty()) return null;
+        Random rand = new Random();
+        Move bestMove = overallBestMoves.get(rand.nextInt(overallBestMoves.size()));
         return moveToString(bestMove);
     }
     

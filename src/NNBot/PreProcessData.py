@@ -4,7 +4,7 @@ import chess.pgn
 import re
 import random
 
-MAX_POSITIONS = 100000
+MAX_POSITIONS = 13000000
 
 def filter_games_with_evals(input_file, output_file):
     games = []
@@ -86,8 +86,8 @@ def parse_and_save_positions_optimized(input_file, output_file, test_file, batch
 if __name__ == "__main__":
     input_filename = "../Data/lichess_db_standard_rated_2014-07.txt"
     filtered_filename = "./Data/filtered_games.txt"
-    parsed_file = "./Data/parsed_positions_100k.txt"
-    test_file = "./Data/test_data_100k.txt"
+    parsed_file = "./Data/parsed_positions_13M.txt"
+    test_file = "./Data/test_data_13M.txt"
     
     # Step 1: Filter games containing evaluations
     #filtered_file = filter_games_with_evals(input_filename, filtered_filename)

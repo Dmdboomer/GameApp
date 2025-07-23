@@ -1,8 +1,9 @@
 from Model_Loader import evaluate_position
+import torch
 
-MODEL_1 = 'PytorchModel/chess_eval_model_1MParameters_25epochs.pth'
-MODEL_2 = 'PytorchModel/chess_eval_model_100kParameters_1epochs.pth'
-TEST_FILE = 'Data/test_data.txt'
+MODEL_1 = 'PytorchModel/chess_eval_model_5MParameters_25epochs.pth'
+MODEL_2 = 'PytorchModel/chess_eval_model_5MParameters_3epochs.pth'
+TEST_FILE = 'Data/test_data_5M.txt'
 
 def parse_evaluation(eval_str):
     # Handle draws
@@ -31,10 +32,12 @@ def closer_times(mod1, mod2):
             eval = parse_evaluation(eval)
             mod1_eval = evaluate_position(pos, mod1)
             mod2_eval = evaluate_position(pos, mod2)
-            if abs(eval) - abs(mod1_eval) > abs(eval) - abs(mod2_eval):
-                model_2_points+=1
-            else:
-                model_1_points +=1
+            error1 = abs(eval - mod1_eval)
+            error2 = abs(eval - mod2_eval)
+            if error1 < error2:  # Model 1 is closer
+                model_1_points += 1
+            elif error2 < error1:  # Model 2 is closer
+                model_2_points += 1
     print("Model 1: %d points", model_1_points)
     print("Model 2: %d points", model_2_points) 
 
@@ -48,10 +51,10 @@ def times_really_close(mod1, mod2):
             eval = parse_evaluation(eval)
             mod1_eval = evaluate_position(pos, mod1)
             mod2_eval = evaluate_position(pos, mod2)
-            if abs(eval) - abs(mod1_eval) < 0.5:
-                model_2_points+=1
-            if abs(eval) - abs(mod2_eval) < 0.5:
-                model_1_points +=1
+            if abs(eval - mod1_eval) < 1:
+                model_1_points+=1
+            if abs(eval - mod2_eval) < 1:
+                model_2_points +=1
     print("Model 1: %d points", model_1_points)
     print("Model 2: %d points", model_2_points) 
 #Test:
