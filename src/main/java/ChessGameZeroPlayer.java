@@ -61,11 +61,13 @@ public class ChessGameZeroPlayer extends ChessGameBase {
             @Override
             protected Void doInBackground() {
                 // Choose AI based on current turn
+                System.out.println(boardToFEN(board, isWhiteTurn));
                 if (isWhiteTurn) {
                     aiMove = whiteAI.findBestMove(board, isWhiteTurn);
                 } else {
                     aiMove = blackAI.findBestMove(board, isWhiteTurn);
                 }
+                System.out.println(aiMove);
                 return null;
             }
             
@@ -109,7 +111,6 @@ public class ChessGameZeroPlayer extends ChessGameBase {
 
     // Reusing existing doMove implementation
     protected void doMove(Position from, Position to) {
-        System.out.println(boardToFEN(board, isWhiteTurn));
         ChessPiece piece = board[from.row][from.col];
         board[to.row][to.col] = piece;
         board[from.row][from.col] = null;
