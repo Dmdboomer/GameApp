@@ -1,4 +1,4 @@
-from Model_Loader import evaluate_position
+from Model_Loader_42k import evaluate_position_42k
 import chess
 import sys
 MODEL_1 = 'PytorchModel/chess_eval_model_5MParameters_25epochs.pth'
@@ -31,7 +31,7 @@ def generate_next_fens(fen):
         raise ValueError("Invalid FEN string provided")
 
 
-def get_best_move(fen, which_model = MODEL_1):
+def get_best_move(fen, which_model, which_eval):
     """
     Finds the best move in the current position using the model for position evaluation.
     The model's evaluation inherently considers the active player (whose turn it is) 
@@ -53,7 +53,7 @@ def get_best_move(fen, which_model = MODEL_1):
         new_board = board.copy()
         new_board.push(move)
         # returns the evaluation of a FEN
-        score = evaluate_position(new_board.fen(), which_model)
+        score = which_eval(new_board.fen(), which_model)
         
         # Always look for the position with the highest evaluation score.
         if score > best_score:

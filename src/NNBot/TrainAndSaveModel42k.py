@@ -61,7 +61,7 @@ class ChessEvalDataset(Dataset):
             for line in f:
                 fen, eval_str = line.strip().split('|')
                 features = fen_to_features(fen)
-                if index % 100 == 0:
+                if index % 10000 == 0:
                     print(f"Parsed: {index}")
                 index += 1
                 eval_val = parse_evaluation(eval_str)
@@ -112,9 +112,9 @@ if __name__ == '__main__':  # Wrap main code
     # Piece mapping with blank character included
     piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
     piece_to_idx['.'] = 0  # Explicit mapping for empty squares
-    PATH_TO_DATA = 'Data/parsed_positions_5M.txt'
-    PATH_TO_MODEL = 'PytorchModel/chess_eval_model_5MParameters_25epochs.pth'
-    EPOCH_AMOUNT = 25
+    PATH_TO_DATA = './Data/filtered_positions_100k.txt'
+    PATH_TO_MODEL = 'PytorchModels/42kParameter_100kPosition_5E_1in10.pth'
+    EPOCH_AMOUNT = 5
 
     # Initialize components
     dataset = ChessEvalDataset(PATH_TO_DATA)

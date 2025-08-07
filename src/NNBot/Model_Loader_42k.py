@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-DEFAULT_MODEL = 'PytorchModel/chess_eval_model_1MParameters_25epochs.pth'
+DEFAULT_MODEL = 'PytorchModel/chess_eval_model_100kParameters_25epochs.pth'
 
 # Define model architecture (MUST match training)
 class ChessEvalModel(nn.Module):
@@ -50,7 +50,7 @@ def fen_to_features(fen):
     return torch.tensor(features, dtype=torch.float32)
 
 # Inference function
-def evaluate_position(fen_str, curr_model = DEFAULT_MODEL):
+def evaluate_position_42k(fen_str, curr_model = DEFAULT_MODEL):
     model = ChessEvalModel()
     model.load_state_dict(torch.load(curr_model))
     model.eval()
