@@ -112,30 +112,78 @@ if __name__ == '__main__':  # Wrap main code
     # Piece mapping with blank character included
     piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
     piece_to_idx['.'] = 0  # Explicit mapping for empty squares
-    PATH_TO_DATA = './Data/filtered_positions_100k.txt'
-    PATH_TO_MODEL = 'PytorchModels/42kParameter_100kPosition_5E_1in10.pth'
-    EPOCH_AMOUNT = 5
+    PATH_TO_DATA = 'Data/clean_position_5M.txt'
+    PATH_TO_TEST = './Data/clean_test_5M.txt'
+    PATH_TO_MODEL = 'PytorchModels/42kParameter_5MPosition_XE_1in10.pth'
+    EPOCH_AMOUNT = 3000
+    EARLY_STOP_PATIENCE = 10  # Stop if no improvement for 2 epochs
 
-    # Initialize components
-    dataset = ChessEvalDataset(PATH_TO_DATA)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    # Create datasets
+    train_dataset = ChessEvalDataset(PATH_TO_DATA)
+    test_dataset = ChessEvalDataset(PATH_TO_TEST)
+    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+    
     model = ChessEvalModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
 
-    # Training loop
-    index = 0
+    # Early stopping initialization
+    best_val_accuracy = 0.0  # Track best accuracy instead of loss
+    epochs_no_improve = 0
+
     for epoch in range(EPOCH_AMOUNT):
-        for inputs, targets in dataloader:
+        # Training phase
+        model.train()
+        train_loss_total = 0
+        index = 0
+        for inputs, targets in train_dataloader:
             if index % 10000 == 0:
-                print("Trained on input: %d", index)
-            index +=1
+                print(f"Trained on batch: {index}")
+            index += 1
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
-        print(f'Epoch {epoch+1}, Loss: {loss.item():.4f}')
+            train_loss_total += loss.item()
+        
+        # Validation phase
+        model.eval()
+        val_loss_total = 0
+        val_correct = 0  # Count of predictions within 0.15 of target
+        val_total = 0    # Total validation samples
+        
+        with torch.no_grad():
+            for inputs, targets in test_dataloader:
+                outputs = model(inputs)
+                val_loss_total += criterion(outputs, targets).item()
+                
+                # Calculate accuracy within tolerance
+                diff = torch.abs(outputs - targets)
+                correct = torch.sum(diff < 1).item()
+                val_correct += correct
+                val_total += targets.size(0)
+        
+        avg_val_loss = val_loss_total / len(test_dataloader)
+        val_accuracy = val_correct / val_total
+        
+        print(f'Epoch {epoch+1} | Train Loss: {train_loss_total/len(train_dataloader):.4f} | Val Loss: {avg_val_loss:.4f} | Val Acc: {val_accuracy:.4f}')
+
+        # Early stopping check based on accuracy
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            epochs_no_improve = 0
+            torch.save(model.state_dict(), PATH_TO_MODEL)
+            print(f"Validation accuracy improved to {best_val_accuracy:.4f}! Saved model to {PATH_TO_MODEL}")
+        else:
+            epochs_no_improve += 1
+            print(f"No validation improvement ({epochs_no_improve}/{EARLY_STOP_PATIENCE})")
+            
+        # Stop if no improvement for EARLY_STOP_PATIENCE epochs
+        if epochs_no_improve >= EARLY_STOP_PATIENCE:
+            print(f"Early stopping after {epoch+1} epochs")
+            break
 
     torch.save(model.state_dict(), PATH_TO_MODEL)
     print("Model saved to " + PATH_TO_MODEL)

@@ -1,10 +1,11 @@
 from Model_Loader_42k import evaluate_position_42k
 from Model_Loader_360k import evaluate_position_360k
-
+from Model_Loader_360k_v2 import evaluate_position_360k_v2
 import chess
 import torch
-
+import math
 # Helper functions with chess logic
+
 def parse_evaluation(eval_str):
     # Handle draws
     if eval_str == '1/2-1/2':
@@ -103,18 +104,13 @@ def compareMoves(fen, models):
 
 #Test:
 if __name__ == "__main__":
-    MODEL_1 = ['./PytorchModels/42kParameter_100kPosition_5E_1in10.pth', evaluate_position_42k]
-    MODEL_2 = ['./PytorchModels/42kParameter_100kPosition_10E_1in10.pth', evaluate_position_42k]
-    MODEL_3 = ['./PytorchModels/42kParameter_100kPosition_100E_1in10.pth', evaluate_position_42k]
-    MODEL_4 = ['./PytorchModels/42kParameter_100kPosition_200E_1in10.pth', evaluate_position_42k]
-    MODEL_5 = ['./PytorchModels/42kParameter_1MPosition_5E_1in10.pth', evaluate_position_42k]
-    MODEL_6 = ['./PytorchModels/42kParameter_1MPosition_10E_1in10.pth', evaluate_position_42k]
-    MODEL_7 = ['./PytorchModels/42kParameter_1MPosition_50E_1in10.pth', evaluate_position_42k]
-    MODEL_8 = ['./PytorchModels/360kParameter_100kposition_5E_1in10.pth', evaluate_position_360k]
-    MODEL_9 = ['./PytorchModels/360kParameter_100kposition_10E_1in10.pth', evaluate_position_360k]    
-    MODEL_10 = ['./PytorchModels/360kParameter_1MPosition_5E_1in10.pth', evaluate_position_360k]
-    MODEL_11 = ['./PytorchModels/360kParameter_1MPosition_100E_1in10.pth', evaluate_position_360k]
-    ALL_MODELS = [MODEL_1, MODEL_2, MODEL_3, MODEL_4, MODEL_5, MODEL_6, MODEL_7, MODEL_8, MODEL_9, MODEL_10, MODEL_11]
+    MODEL_1 = ['./PytorchModels/42kParameter_100kPosition_200E_1in10.pth', evaluate_position_42k]
+    MODEL_2 = ['./PytorchModels/360kParameter_5MPosition_1E_1in10.pth', evaluate_position_360k]
+    MODEL_3 = ['./PytorchModels/360kParameter_1MPosition_100E_1in10.pth', evaluate_position_360k]
+    MODEL_4 = ['./PytorchModels/42kParameter_5MPosition_XE_1in10.pth', evaluate_position_42k]
+    MODEL_5 = ['./PytorchModels/360kParameter_5MPosition_XE_1in10.pth', evaluate_position_360k]
+    MODEL_6 = ['./PytorchModels/360kParameter_5MPosition_XE_v2.pth', evaluate_position_360k_v2]
+    ALL_MODELS = [MODEL_1, MODEL_2, MODEL_3, MODEL_4, MODEL_5, MODEL_6]
 
     
     ALL_NAMES = [''] * len(ALL_MODELS)
@@ -125,8 +121,8 @@ if __name__ == "__main__":
         ALL_EVALFUNCTIONS[i] = ALL_MODELS[i][1]
 
 
-    TEST_FILE = 'Data/test_positions_1M.txt'
-    #closer_times(ALL_MODELS) 
-    #times_really_close(ALL_MODELS)
+    TEST_FILE = 'Data/clean_test_5M.txt'
+    closer_times(ALL_MODELS) 
+    times_really_close(ALL_MODELS)
     test_fen = "r1bq1rk1/ppppbppp/2n1p3/3nP3/3P2Q1/2PB4/PP1B1PPP/RN2K1NR w KQ - 5 8"
-    compareMoves(test_fen, ALL_MODELS)
+    #compareMoves(test_fen, ALL_MODELS)

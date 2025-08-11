@@ -112,4 +112,3 @@ def evaluate_position_360k(fen_str, curr_model = DEFAULT_MODEL):
 # Example usage
 if __name__ == "__main__":
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    print(f"Evaluation: {evaluate_position(fen, DEFAULT_MODEL):.2f}")

@@ -1,78 +1,99 @@
 import torch
-import numpy as np
-from torch.utils.data import Dataset
 import torch.nn as nn
-from torch.utils.data import DataLoader
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
 import copy
+import re
 
-import torch
+# Piece mapping dictionary
 piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
 piece_to_idx['.'] = 0
 
 def fen_to_features(fen):
     tokens = fen.split()
-    board = tokens[0]
+    board_str = tokens[0]
     turn = tokens[1]
     castling = tokens[2] if len(tokens) > 2 else '-'
     
-    features = []
-    for row in board.split('/'):
+    # Parse board into 8x8 grid
+    board_1d = []
+    for row in board_str.split('/'):
         for char in row:
             if char.isdigit():
-                features.extend([0] * int(char))
-            elif char in piece_to_idx:
-                features.append(piece_to_idx[char])
+                board_1d.extend([0] * int(char))
             else:
-                features.append(0)
-                
-    features.append(1 if turn == 'w' else 0)
+                board_1d.append(piece_to_idx[char])
+    
+    # Convert to 8x8 tensor (long)
+    board_tensor = torch.tensor(board_1d, dtype=torch.long).view(8, 8)
+    
+    # Metadata features
+    turn_feature = 1.0 if turn == 'w' else 0.0
     
     castling_map = {'K': 0, 'Q': 1, 'k': 2, 'q': 3}
-    castling_features = [0, 0, 0, 0]
+    castling_features = [0.0, 0.0, 0.0, 0.0]
     if castling != '-':
         for char in castling:
             if char in castling_map:
-                castling_features[castling_map[char]] = 1
-    features.extend(castling_features)
+                castling_features[castling_map[char]] = 1.0
     
-    return torch.tensor(features, dtype=torch.float32)
+    metadata = torch.tensor([turn_feature] + castling_features, dtype=torch.float32)
+    return board_tensor, metadata
 
-def parse_evaluation(eval_str):
+def parse_evaluation(eval_str, turn):
+    """Convert evaluation to win probability in [-1, 1] range"""
+    # Handle draws
     if eval_str == '1/2-1/2':
         return 0.0
+    
+    # Handle mate scores
     if eval_str.startswith('#'):
         if eval_str.startswith('#-'):
-            return -1000 + int(eval_str[2:])
-        return 1000 - int(eval_str[1:])
+            return -1.0 if turn == 'w' else 1.0
+        else:
+            return 1.0 if turn == 'w' else -1.0
+    
+    # Centipawn conversion to win probability
     try:
-        return float(eval_str)
-    except:
+        cp_val = float(eval_str)
+    except ValueError:
         return 0.0
+    
+    # Adjust for current player perspective
+    if turn == 'b':
+        cp_val = -cp_val
+    
+    # Sigmoid conversion: 2/(1 + 10^(-cp/4)) - 1 → [-1, 1]
+    win_prob = 1.0 / (1 + 10 ** (-cp_val / 4))
+    return 2 * win_prob - 1
 
 class ChessEvalDataset(Dataset):
     def __init__(self, file_path):
         self.data = []
         with open(file_path, 'r') as f:
             for idx, line in enumerate(f):
-                fen, eval_str = line.strip().split('|')
-                features = fen_to_features(fen)
+                fen, eval_str = line.strip().split('|', 1)
+                board, metadata = fen_to_features(fen)
+                turn = fen.split()[1]  # Extract turn from FEN
+                eval_val = parse_evaluation(eval_str, turn)
+                self.data.append((board, metadata, torch.tensor([eval_val])))
+                
                 if idx % 10000 == 0:
                     print(f"Parsed: {idx}")
-                eval_val = parse_evaluation(eval_str)
-                self.data.append((features, torch.tensor([eval_val])))
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
-        return self.data[idx]
+        board, metadata, eval_val = self.data[idx]
+        return (board, metadata), eval_val
 
 class SmallChessEvalModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.embedding = nn.Embedding(14, 32)  # Reduced from 64 to 32
+        self.embedding = nn.Embedding(14, 32)  # 13 pieces + empty
         
-        # Simplified residual blocks with channel reduction
+        # Residual convolution blocks
         self.residual_proj1 = nn.Conv2d(32, 64, kernel_size=1, bias=False)
         self.conv_block1 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
@@ -91,17 +112,17 @@ class SmallChessEvalModel(nn.Module):
             nn.BatchNorm2d(128)
         )
         
-        # Transition with pooling to reduce features
+        # Feature compression
         self.transition = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1))  # Pool to 1x1 features
+            nn.AdaptiveAvgPool2d((1, 1))
         )
         
-        # Streamlined fully connected layers
+        # Fully connected layers
         self.fc = nn.Sequential(
-            nn.Linear(256 + 5, 128),  # Input features: 256 + 5 (metadata)
+            nn.Linear(256 + 5, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
@@ -112,39 +133,33 @@ class SmallChessEvalModel(nn.Module):
         total_params = sum(p.numel() for p in self.parameters())
         print(f"Model parameters: {total_params:,}")
 
-    def forward(self, x):
-        board = x[:, :64].long()
-        other_features = x[:, 64:]
-        
+    def forward(self, board, metadata):
+        # Embedding: [B, 8, 8] → [B, 8, 8, 32] → [B, 32, 8, 8]
         emb = self.embedding(board)
-        #emb = emb.view(-1, 8, 8, 32).permute(0, 3, 1, 2)  # [B, 32, 8, 8]
-        emb = emb.reshape(-1, 8, 8, 32).permute(0, 3, 1, 2).contiguous()
-
-        # Residual Block 1
+        emb = emb.permute(0, 3, 1, 2).contiguous()
+        
+        # Residual block 1
         residual1 = self.residual_proj1(emb)
         conv_out = self.conv_block1(emb)
         conv_out = self.relu(conv_out + residual1)
         
-        # Residual Block 2
+        # Residual block 2
         residual2 = self.residual_proj2(conv_out)
         conv_out = self.conv_block2(conv_out)
         conv_out = self.relu(conv_out + residual2)
         
-        # Transition and flatten
+        # Compress features
         conv_out = self.transition(conv_out)
-
-        #conv_out = conv_out.view(conv_out.size(0), -1)
-        conv_out = conv_out.reshape(conv_out.size(0), -1).contiguous()
-
+        conv_out = conv_out.view(conv_out.size(0), -1)
         
-        # Combine with metadata features
-        combined = torch.cat([conv_out, other_features], dim=1)
+        # Combine with metadata
+        combined = torch.cat([conv_out, metadata], dim=1)
         return self.fc(combined)
 
 class EarlyStopping:
     def __init__(self, patience=5, delta=0.001):
         self.patience = patience
-        self.delta = delta  # Minimum change to qualify as improvement
+        self.delta = delta
         self.counter = 0
         self.best_loss = float('inf')
         self.early_stop = False
@@ -152,12 +167,10 @@ class EarlyStopping:
 
     def __call__(self, val_loss, model):
         if val_loss < self.best_loss - self.delta:
-            # Improvement: save model state and reset counter
             self.best_loss = val_loss
             self.counter = 0
             self.best_model_state = copy.deepcopy(model.state_dict())
         else:
-            # No improvement: increment counter
             self.counter += 1
             if self.counter >= self.patience:
                 self.early_stop = True
@@ -167,38 +180,37 @@ class EarlyStopping:
             model.load_state_dict(self.best_model_state)
 
 if __name__ == '__main__':
-    piece_to_idx = {char: idx for idx, char in enumerate('_pnbrqkPNBRQK', 1)}
-    piece_to_idx['.'] = 0
     PATH_TO_DATA = './Data/clean_position_5M.txt'
-    PATH_TO_MODEL = 'PytorchModels/360kParameter_5MPosition_XE_1in10.pth'
-    PATH_TO_TEST = './Data/clean_test_5M.txt'  # Test file for validation
-    EPOCH_AMOUNT = 50
-    EARLY_STOP_PATIENCE = 3  # Stop if no improvement for 2 epochs
+    PATH_TO_MODEL = 'PytorchModels/360kParameter_5MPosition_XE_v2.pth'
+    PATH_TO_TEST = './Data/clean_test_5M.txt'
+    EPOCH_AMOUNT = 30
+    EARLY_STOP_PATIENCE = 3
 
-    # Create datasets and dataloaders
+    # Initialize datasets
     train_dataset = ChessEvalDataset(PATH_TO_DATA)
-    test_dataset = ChessEvalDataset(PATH_TO_TEST)  # Validation set
+    test_dataset = ChessEvalDataset(PATH_TO_TEST)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)  # No shuffle for validation
+    val_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     
-    # Initialize model, device, optimizer, and loss
+    # Model setup
     model = SmallChessEvalModel()
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
-    
-    # Initialize early stopping
     early_stopping = EarlyStopping(patience=EARLY_STOP_PATIENCE)
 
+    # Training loop
     for epoch in range(EPOCH_AMOUNT):
-        # Training phase
         model.train()
         epoch_loss = 0.0
         for idx, (inputs, targets) in enumerate(train_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
+            board_batch = inputs[0].to(device)
+            meta_batch = inputs[1].to(device)
+            targets = targets.to(device)
+            
             optimizer.zero_grad()
-            outputs = model(inputs)
+            outputs = model(board_batch, meta_batch)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
@@ -207,41 +219,36 @@ if __name__ == '__main__':
             if idx % 1000 == 0:
                 print(f"Batch {idx}, Loss: {loss.item():.4f}")
         
-        # Validation phase
+        # Validation
         model.eval()
         val_loss = 0.0
         correct_points = 0
         total_samples = 0
-        
         with torch.no_grad():
             for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                val_loss += loss.item() * inputs.size(0)
+                board_batch = inputs[0].to(device)
+                meta_batch = inputs[1].to(device)
+                targets = targets.to(device)
                 
-                # Calculate predictions within 1 point of target
+                outputs = model(board_batch, meta_batch)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item() * targets.size(0)
+                
                 abs_errors = torch.abs(outputs - targets).squeeze()
-                correct_points += (abs_errors <= 0.3).sum().item()
-                total_samples += inputs.size(0)
+                correct_points += (abs_errors <= 0.05).sum().item()
+                total_samples += targets.size(0)
         
-        # Calculate validation metrics
-        val_loss /= total_samples  # Average validation loss
-        accuracy = correct_points / total_samples  # Accuracy within 1 point
-        
+        val_loss /= total_samples
+        accuracy = correct_points / total_samples
         print(f'Epoch {epoch+1}, Train Loss: {epoch_loss/len(train_loader):.4f}, '
-              f'Val Loss: {val_loss:.4f}, Accuracy (within 1): {accuracy:.4f}')
+              f'Val Loss: {val_loss:.4f}, Accuracy (within 0.3): {accuracy:.4f}')
         
-        # Early stopping check
         early_stopping(val_loss, model)
         if early_stopping.early_stop:
             print("Early stopping triggered")
             break
-
-    # Load best model weights and save
+    
+    # Save final model
     early_stopping.load_best_model(model)
     torch.save(model.state_dict(), PATH_TO_MODEL)
     print(f"Model saved to {PATH_TO_MODEL}")
-    
-    # Test evaluation
-    fen = "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"

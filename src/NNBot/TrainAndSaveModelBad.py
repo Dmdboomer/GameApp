@@ -89,7 +89,7 @@ torch.save(model.state_dict(), 'chess_eval_model.pth')
 print("Model saved to chess_eval_model.pth")
 
 def evaluate_position(fen_str):
-    model.eval()  # Set to evaluation mode[1,2](@ref)
+    model.eval()  # Set to evaluation mode
     with torch.no_grad():
         features = fen_to_features(fen_str).unsqueeze(0)
         prediction = model(features)
